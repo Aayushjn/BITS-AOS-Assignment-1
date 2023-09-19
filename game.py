@@ -34,11 +34,11 @@ def spawn_missile(board_size: int) -> tuple[int, tuple[int, int]]:
     tuple[int, tuple[int, int]]
         tuple with missile type and (x, y) co-ordinates
     """
-    missile_type = random.randrange(1, 5)
+    missile_type = random.randint(1, 4)
 
     return missile_type, (
-        random.randrange(missile_type, board_size - missile_type + 1),
-        random.randrange(missile_type, board_size - missile_type + 1),
+        random.randint(missile_type, board_size - missile_type),
+        random.randint(missile_type, board_size - missile_type),
     )
 
 
@@ -55,11 +55,15 @@ class Soldier:
     speed: int
     position: tuple[int, int]
     is_alive: bool
+    is_promoted: bool
+    game_over: bool
 
     def __init__(self, board_size: int):
+        self.game_over = False
+        self.is_promoted = False
         self.is_alive = True
         self.board_size = board_size
-        self.speed = random.randrange(0, MAX_SPEED + 1)
+        self.speed = random.randint(0, MAX_SPEED)
         self.position = random.randrange(0, board_size), random.randrange(0, board_size)
 
     def _is_in_red_zone(self, missile_type: int, missile_position: tuple[int, int]) -> bool:
@@ -113,11 +117,11 @@ class Commander(Soldier):
         Reads a "soldiers.txt" inventory file. Each line contains the IP address and port of the soldiers
         """
         with Path("soldiers.txt").open("r") as f:
-            self.alive_soldiers = [{"sid": i+1, "addr": line, "position": (-1, -1)} for i, line in enumerate(f)]
+            self.alive_soldiers = [{"sid": i + 1, "addr": line, "position": (-1, -1)} for i, line in enumerate(f)]
 
     def send_startup_request(self):
-        print("sending")
         for soldier in self.alive_soldiers:
+            print(f"sending to {soldier}")
             with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 resp = stub.StartupStatus(war_pb2.StartupRequest(soldier_id=soldier["sid"], N=self.board_size))
@@ -130,6 +134,14 @@ class Commander(Soldier):
             with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 stub.MissileApproaching(war_pb2.MissileApproachingRequest(target=war_pb2.Point(x=missile[1][0], y=missile[1][1], time_to_hit=self.time_to_hit, type=missile[0])))
+
+    def send_missile_incoming_message(self):
+        # TODO: Tie-in gRPC call
+        pass
+
+    def send_new_commander_message(self):
+        # TODO: Tie-in gRPC call
+        pass
 
     def print_layout(self):
         # TODO: Print board layout
@@ -148,6 +160,30 @@ class War(war_pb2_grpc.WarServicer):
     def MissileApproaching(self, request, context):
         self.soldier.take_shelter(missile_position=(request.target.x, request.target.y), missile_type=request.type)
         return war_pb2.Empty()
+
+    # TODO: Add remaining RPC calls
+
+
+def start_commander(is_promoted: bool) -> Commander:
+    c = Commander(args.board_size, args.time_to_missile, args.game_time)
+    if not is_promoted:
+        c.send_startup_request()
+    else:
+        # TODO: Pass alive soldiers for soldier promotion to commander
+        pass
+    return c
+
+    # TODO: Add remaining RPC calls
+
+
+def start_commander(is_promoted: bool) -> Commander:
+    c = Commander(args.board_size, args.time_to_missile, args.game_time)
+    if not is_promoted:
+        c.send_startup_request()
+    else:
+        # TODO: Pass alive soldiers for soldier promotion to commander
+        pass
+    return c
 
 
 def _check_board_size(n: str) -> int:
@@ -202,15 +238,31 @@ if args.time_to_missile > args.game_time:
     raise ValueError("game time must be greater than missile frequency")
 
 if args.commander:
-    c = Commander(args.board_size, args.time_to_missile, args.game_time)
-    c.send_startup_request()
-    print(c.alive_soldiers)
+    c = start_commander(False)
+
+    c.print_layout()
+    while not c.game_over:
+        c.send_missile_incoming_message()
+        # TODO: Send status message
+        # TODO: Update alive soldiers dict
+        if not c.is_alive:
+            c.send_new_commander_message()
+            break
+        c.print_layout()
 else:
     s = Soldier(args.board_size)
+    war_service = War()
+    war_service.soldier = s
     server = grpc.server(ThreadPoolExecutor(max_workers=10))
-    war_pb2_grpc.add_WarServicer_to_server(War(), server)
-    print(args.addr)
-    server.add_insecure_port(f"{args.addr}")
+    war_pb2_grpc.add_WarServicer_to_server(war_service, server)
+    server.add_insecure_port(args.addr)
     server.start()
     print(f"gRPC server started, listening on {args.addr}")
     server.wait_for_termination()
+    while True:
+        if s.is_promoted or not s.is_alive or s.game_over:
+            # stop gRPC server
+            break
+
+    if s.is_promoted:
+        c = start_commander(True)
