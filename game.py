@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TypedDict
 
+import grpc
+
 import war_pb2
 import war_pb2_grpc
 
