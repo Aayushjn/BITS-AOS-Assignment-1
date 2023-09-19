@@ -86,7 +86,7 @@ class Soldier:
         return self.position[0] in (
             missile_position[0] - missile_type + 1,
             missile_position[0] + missile_type - 1,
-        ) or self.position[1] in (
+        ) and self.position[1] in (
             missile_position[1] - missile_type + 1,
             missile_position[1] + missile_type - 1,
         )
@@ -121,7 +121,7 @@ class Commander(Soldier):
         Reads a "soldiers.txt" inventory file. Each line contains the IP address and port of the soldiers
         """
         with Path("soldiers.txt").open("r") as f:
-            self.alive_soldiers = [{"sid": i + 1, "addr": line, "position": (-1, -1)} for i, line in enumerate(f)]
+            self.alive_soldiers = [{"sid": i + 1, "addr": line.strip(), "position": (-1, -1)} for i, line in enumerate(f)]
 
     def send_startup_request(self):
         for soldier in self.alive_soldiers:
