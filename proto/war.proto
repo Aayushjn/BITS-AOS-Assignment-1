@@ -4,6 +4,7 @@ package warrior;
 
 service War {
   rpc StartupStatus (StartupRequest) returns (StartupResponse) {}
+  rpc MissileApproaching (MissileApproachingRequest) returns (Empty) {}
 }
 
 message Point {
@@ -20,3 +21,11 @@ message StartupResponse {
   int32 soldier_id = 1;
   Point current_position = 2;
 }
+
+message MissileApproachingRequest {
+  Point target = 1;
+  int32 time_to_hit = 2;
+  int32 type = 3;
+}
+
+message Empty {}

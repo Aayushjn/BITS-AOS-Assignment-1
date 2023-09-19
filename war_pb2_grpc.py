@@ -19,12 +19,23 @@ class WarStub(object):
                 request_serializer=war__pb2.StartupRequest.SerializeToString,
                 response_deserializer=war__pb2.StartupResponse.FromString,
                 )
+        self.MissileApproaching = channel.unary_unary(
+                '/warrior.War/MissileApproaching',
+                request_serializer=war__pb2.MissileApproachingRequest.SerializeToString,
+                response_deserializer=war__pb2.Empty.FromString,
+                )
 
 
 class WarServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def StartupStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MissileApproaching(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -37,6 +48,11 @@ def add_WarServicer_to_server(servicer, server):
                     servicer.StartupStatus,
                     request_deserializer=war__pb2.StartupRequest.FromString,
                     response_serializer=war__pb2.StartupResponse.SerializeToString,
+            ),
+            'MissileApproaching': grpc.unary_unary_rpc_method_handler(
+                    servicer.MissileApproaching,
+                    request_deserializer=war__pb2.MissileApproachingRequest.FromString,
+                    response_serializer=war__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -62,5 +78,22 @@ class War(object):
         return grpc.experimental.unary_unary(request, target, '/warrior.War/StartupStatus',
             war__pb2.StartupRequest.SerializeToString,
             war__pb2.StartupResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def MissileApproaching(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/warrior.War/MissileApproaching',
+            war__pb2.MissileApproachingRequest.SerializeToString,
+            war__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

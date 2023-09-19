@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\twar.proto\x12\x07warrior\"\x1d\n\x05Point\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x0eStartupRequest\x12\x12\n\nsoldier_id\x18\x01 \x01(\x05\x12\t\n\x01N\x18\x02 \x01(\x05\"O\n\x0fStartupResponse\x12\x12\n\nsoldier_id\x18\x01 \x01(\x05\x12(\n\x10\x63urrent_position\x18\x02 \x01(\x0b\x32\x0e.warrior.Point2K\n\x03War\x12\x44\n\rStartupStatus\x12\x17.warrior.StartupRequest\x1a\x18.warrior.StartupResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\twar.proto\x12\x07warrior\"\x1d\n\x05Point\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x0eStartupRequest\x12\x12\n\nsoldier_id\x18\x01 \x01(\x05\x12\t\n\x01N\x18\x02 \x01(\x05\"O\n\x0fStartupResponse\x12\x12\n\nsoldier_id\x18\x01 \x01(\x05\x12(\n\x10\x63urrent_position\x18\x02 \x01(\x0b\x32\x0e.warrior.Point\"^\n\x19MissileApproachingRequest\x12\x1e\n\x06target\x18\x01 \x01(\x0b\x32\x0e.warrior.Point\x12\x13\n\x0btime_to_hit\x18\x02 \x01(\x05\x12\x0c\n\x04type\x18\x03 \x01(\x05\"\x07\n\x05\x45mpty2\x97\x01\n\x03War\x12\x44\n\rStartupStatus\x12\x17.warrior.StartupRequest\x1a\x18.warrior.StartupResponse\"\x00\x12J\n\x12MissileApproaching\x12\".warrior.MissileApproachingRequest\x1a\x0e.warrior.Empty\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -27,6 +27,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_STARTUPREQUEST']._serialized_end=100
   _globals['_STARTUPRESPONSE']._serialized_start=102
   _globals['_STARTUPRESPONSE']._serialized_end=181
-  _globals['_WAR']._serialized_start=183
-  _globals['_WAR']._serialized_end=258
+  _globals['_MISSILEAPPROACHINGREQUEST']._serialized_start=183
+  _globals['_MISSILEAPPROACHINGREQUEST']._serialized_end=277
+  _globals['_EMPTY']._serialized_start=279
+  _globals['_EMPTY']._serialized_end=286
+  _globals['_WAR']._serialized_start=289
+  _globals['_WAR']._serialized_end=440
 # @@protoc_insertion_point(module_scope)

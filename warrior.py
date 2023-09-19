@@ -50,9 +50,9 @@ def main():
         # sol_data_filename = input("Enter file name of soldier data: ")
         # sol_data_file = open(sol_data_filename, 'r')
 
-        client_port = ["50051", "50052", "50053"]
+        client_port = ["50051"]
         for i in range(len(client_port)):
-            with grpc.insecure_channel("localhost:" + client_port[i]) as channel:
+            with grpc.insecure_channel("172.17.84.47:" + client_port[i]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 response = stub.StartupStatus(war_pb2.StartupRequest(soldier_id=i, N=int(N)))
                 print(response.soldier_id, response.current_position.x, response.current_position.y)
@@ -64,7 +64,7 @@ def main():
         logging.basicConfig()
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         war_pb2_grpc.add_WarServicer_to_server(War(), server)
-        server.add_insecure_port("[::]:" + port)
+        server.add_insecure_port(ip + ":" + port)
         server.start()
         print("Server started, listening on " + port)
         server.wait_for_termination()

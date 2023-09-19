@@ -27,3 +27,17 @@ class StartupResponse(_message.Message):
     soldier_id: int
     current_position: Point
     def __init__(self, soldier_id: _Optional[int] = ..., current_position: _Optional[_Union[Point, _Mapping]] = ...) -> None: ...
+
+class MissileApproachingRequest(_message.Message):
+    __slots__ = ["target", "time_to_hit", "type"]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    TIME_TO_HIT_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    target: Point
+    time_to_hit: int
+    type: int
+    def __init__(self, target: _Optional[_Union[Point, _Mapping]] = ..., time_to_hit: _Optional[int] = ..., type: _Optional[int] = ...) -> None: ...
+
+class Empty(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...

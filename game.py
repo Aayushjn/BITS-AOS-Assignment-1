@@ -55,7 +55,6 @@ class Soldier:
     speed: int
     position: tuple[int, int]
     is_alive: bool
-    _grpc_server: grpc.Server
 
     def __init__(self, board_size: int):
         self.is_alive = True
@@ -114,7 +113,7 @@ class Commander(Soldier):
         Reads a "soldiers.txt" inventory file. Each line contains the IP address and port of the soldiers
         """
         with Path("soldiers.txt").open("r") as f:
-            self.alive_soldiers = [{"sid": i, "addr": line, "position": (-1, -1)} for i, line in enumerate(f)]
+            self.alive_soldiers = [{"sid": i+1, "addr": line, "position": (-1, -1)} for i, line in enumerate(f)]
 
     def send_startup_request(self):
         print("sending")
@@ -123,6 +122,14 @@ class Commander(Soldier):
                 stub = war_pb2_grpc.WarStub(channel)
                 resp = stub.StartupStatus(war_pb2.StartupRequest(soldier_id=soldier["sid"], N=self.board_size))
                 soldier["position"] = (resp.current_position.x, resp.current_position.y)
+
+    def send_missile_approaching_request(self):
+        print("Send missile approaching")
+        missile = spawn_missile(self.board_size)
+        for soldier in self.alive_soldiers:
+            with grpc.insecure_channel(soldier["addr"]) as channel:
+                stub = war_pb2_grpc.WarStub(channel)
+                stub.MissileApproaching(war_pb2.MissileApproachingRequest(target=war_pb2.Point(x=missile[1][0], y=missile[1][1], time_to_hit=self.time_to_hit, type=missile[0])))
 
     def print_layout(self):
         # TODO: Print board layout
@@ -138,6 +145,9 @@ class War(war_pb2_grpc.WarServicer):
             soldier_id=request.soldier_id,
             current_position=war_pb2.Point(x=self.soldier.position[0], y=self.soldier.position[1]),
         )
+    def MissileApproaching(self, request, context):
+        self.soldier.take_shelter(missile_position=(request.target.x, request.target.y), missile_type=request.type)
+        return war_pb2.Empty()
 
 
 def _check_board_size(n: str) -> int:
@@ -201,5 +211,6 @@ else:
     war_pb2_grpc.add_WarServicer_to_server(War(), server)
     print(args.addr)
     server.add_insecure_port(f"{args.addr}")
+    server.start()
     print(f"gRPC server started, listening on {args.addr}")
     server.wait_for_termination()
