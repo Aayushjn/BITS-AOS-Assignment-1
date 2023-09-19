@@ -1,8 +1,14 @@
 import argparse
 import os
 import random
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TypedDict
+
+import grpc
+
+import war_pb2
+import war_pb2_grpc
 
 MAX_SPEED = 4
 MIN_BOARD_SIZE = 5
@@ -49,6 +55,7 @@ class Soldier:
     speed: int
     position: tuple[int, int]
     is_alive: bool
+    _grpc_server: grpc.Server
 
     def __init__(self, board_size: int):
         self.is_alive = True
@@ -109,9 +116,28 @@ class Commander(Soldier):
         with Path("soldiers.txt").open("r") as f:
             self.alive_soldiers = [{"sid": i, "addr": line, "position": (-1, -1)} for i, line in enumerate(f)]
 
+    def send_startup_request(self):
+        print("sending")
+        for soldier in self.alive_soldiers:
+            with grpc.insecure_channel(soldier["addr"]) as channel:
+                stub = war_pb2_grpc.WarStub(channel)
+                resp = stub.StartupStatus(war_pb2.StartupRequest(soldier_id=soldier["sid"], N=self.board_size))
+                soldier["position"] = (resp.current_position.x, resp.current_position.y)
+
     def print_layout(self):
         # TODO: Print board layout
         pass
+
+
+class War(war_pb2_grpc.WarServicer):
+    soldier: Soldier
+
+    def StartupStatus(self, request, context):
+        self.soldier.sid = request.soldier_id
+        return war_pb2.StartupResponse(
+            soldier_id=request.soldier_id,
+            current_position=war_pb2.Point(x=self.soldier.position[0], y=self.soldier.position[1]),
+        )
 
 
 def _check_board_size(n: str) -> int:
@@ -158,6 +184,7 @@ parser.add_argument(
     dest="time_to_missile",
 )
 parser.add_argument("-T", required=True, help="total game time", dest="game_time")
+parser.add_argument("--addr", required=True, help="soldier IP address and port")
 
 args = parser.parse_args()
 
@@ -166,5 +193,13 @@ if args.time_to_missile > args.game_time:
 
 if args.commander:
     c = Commander(args.board_size, args.time_to_missile, args.game_time)
+    c.send_startup_request()
+    print(c.alive_soldiers)
 else:
     s = Soldier(args.board_size)
+    server = grpc.server(ThreadPoolExecutor(max_workers=10))
+    war_pb2_grpc.add_WarServicer_to_server(War(), server)
+    print(args.addr)
+    server.add_insecure_port(f"{args.addr}")
+    print(f"gRPC server started, listening on {args.addr}")
+    server.wait_for_termination()
