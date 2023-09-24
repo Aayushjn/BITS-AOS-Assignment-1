@@ -1,7 +1,8 @@
 import argparse
 import os
-import time
 import random
+import sys
+import time
 import tomllib
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -325,6 +326,12 @@ if __name__ == "__main__":
 
     with Path("config.toml").open("rb") as f:
         conf = tomllib.load(f)
+    if conf["N"] < MIN_BOARD_SIZE:
+        print(f"Board size must at least be {MIN_BOARD_SIZE}", file=sys.stderr)
+        sys.exit(1)
+    if conf["t"] > conf["T"]:
+        print("Frequency between missiles cannot be greater than game time", file=sys.stderr)
+        sys.exit(1)
 
     if args.commander:
         c = Commander(conf["N"], conf["t"], conf["T"], cur_time=0, is_initial_commander=True)
