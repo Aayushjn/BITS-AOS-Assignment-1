@@ -24,6 +24,21 @@ class WarStub(object):
                 request_serializer=war__pb2.MissileApproachingRequest.SerializeToString,
                 response_deserializer=war__pb2.Empty.FromString,
                 )
+        self.RoundStatus = channel.unary_unary(
+                '/warrior.War/RoundStatus',
+                request_serializer=war__pb2.Empty.SerializeToString,
+                response_deserializer=war__pb2.RoundStatusResponse.FromString,
+                )
+        self.GameOver = channel.unary_unary(
+                '/warrior.War/GameOver',
+                request_serializer=war__pb2.Empty.SerializeToString,
+                response_deserializer=war__pb2.Empty.FromString,
+                )
+        self.NewCommander = channel.unary_unary(
+                '/warrior.War/NewCommander',
+                request_serializer=war__pb2.NewCommanderRequest.SerializeToString,
+                response_deserializer=war__pb2.Empty.FromString,
+                )
 
 
 class WarServicer(object):
@@ -41,6 +56,24 @@ class WarServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RoundStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GameOver(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def NewCommander(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_WarServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -52,6 +85,21 @@ def add_WarServicer_to_server(servicer, server):
             'MissileApproaching': grpc.unary_unary_rpc_method_handler(
                     servicer.MissileApproaching,
                     request_deserializer=war__pb2.MissileApproachingRequest.FromString,
+                    response_serializer=war__pb2.Empty.SerializeToString,
+            ),
+            'RoundStatus': grpc.unary_unary_rpc_method_handler(
+                    servicer.RoundStatus,
+                    request_deserializer=war__pb2.Empty.FromString,
+                    response_serializer=war__pb2.RoundStatusResponse.SerializeToString,
+            ),
+            'GameOver': grpc.unary_unary_rpc_method_handler(
+                    servicer.GameOver,
+                    request_deserializer=war__pb2.Empty.FromString,
+                    response_serializer=war__pb2.Empty.SerializeToString,
+            ),
+            'NewCommander': grpc.unary_unary_rpc_method_handler(
+                    servicer.NewCommander,
+                    request_deserializer=war__pb2.NewCommanderRequest.FromString,
                     response_serializer=war__pb2.Empty.SerializeToString,
             ),
     }
@@ -94,6 +142,57 @@ class War(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/warrior.War/MissileApproaching',
             war__pb2.MissileApproachingRequest.SerializeToString,
+            war__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RoundStatus(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/warrior.War/RoundStatus',
+            war__pb2.Empty.SerializeToString,
+            war__pb2.RoundStatusResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GameOver(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/warrior.War/GameOver',
+            war__pb2.Empty.SerializeToString,
+            war__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def NewCommander(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/warrior.War/NewCommander',
+            war__pb2.NewCommanderRequest.SerializeToString,
             war__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

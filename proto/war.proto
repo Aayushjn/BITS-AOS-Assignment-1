@@ -5,6 +5,9 @@ package warrior;
 service War {
   rpc StartupStatus (StartupRequest) returns (StartupResponse) {}
   rpc MissileApproaching (MissileApproachingRequest) returns (Empty) {}
+  rpc RoundStatus(Empty) returns (RoundStatusResponse) {}
+  rpc GameOver (Empty) returns (Empty) {}
+  rpc NewCommander (NewCommanderRequest) returns (Empty) {}
 }
 
 message Point {
@@ -18,14 +21,33 @@ message StartupRequest {
 }
 
 message StartupResponse {
-  int32 soldier_id = 1;
-  Point current_position = 2;
+  Point current_position = 1;
 }
 
 message MissileApproachingRequest {
   Point target = 1;
   int32 time_to_hit = 2;
   int32 type = 3;
+}
+
+message RoundStatusResponse {
+  int32 soldier_id = 1;
+  bool was_hit = 2;
+  Point updated_position = 3;
+}
+
+message AliveSoldier {
+  int32 sid = 1;
+  string addr = 2;
+  Point position = 3;
+}
+
+message NewCommanderRequest {
+  int32 board_size = 1;
+  int32 time_to_missile = 2;
+  int32 game_time = 3;
+  int32 cur_time = 4;
+  repeated AliveSoldier alive_soldiers = 5;
 }
 
 message Empty {}
