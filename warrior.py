@@ -8,6 +8,7 @@ import random
 
 import sys
 
+
 class Soldier:
     soldier_id: int
     speed: int
@@ -21,11 +22,17 @@ class Soldier:
 
 class War(war_pb2_grpc.WarServicer):
     def StartupStatus(self, request, context):
-        print("Solder received " + str(request.soldier_id) + " " + str(request.N))
+        print("Solder received " + str(request.soldier_id) + " " + str(request.board_size))
         # Soldier initializes a random position, speed
-        soldier = Soldier(request.soldier_id, random.randint(0,4), (random.randint(0,request.N - 1), random.randint(0,request.N - 1)))
-        return war_pb2.StartupResponse(soldier_id=soldier.soldier_id, current_position=war_pb2.Point(x=soldier.current_position[0], y=soldier.current_position[1]))
-
+        soldier = Soldier(
+            request.soldier_id,
+            random.randint(0, 4),
+            (random.randint(0, request.board_size - 1), random.randint(0, request.board_size - 1)),
+        )
+        return war_pb2.StartupResponse(
+            soldier_id=soldier.soldier_id,
+            current_position=war_pb2.Point(x=soldier.current_position[0], y=soldier.current_position[1]),
+        )
 
 
 # TODO: number of soldiers is predefined, can we do it programatically?
@@ -35,12 +42,11 @@ def main():
     """
     args = sys.argv[1:]
     argc = len(args)
-    # TODO: robust error checking for CLI args    
+    # TODO: robust error checking for CLI args
     if argc != 1:
         sys.exit("Usage: python warrior.py <sol|com>")
     if args[0] != "sol" and args[0] != "com":
         sys.exit("Usage: python warrior.py <sol|com>")
-
 
     if args[0] == "com":
         N = input("Enter dimension of grid(N): ")
@@ -68,5 +74,6 @@ def main():
         server.start()
         print("Server started, listening on " + port)
         server.wait_for_termination()
+
 
 main()
