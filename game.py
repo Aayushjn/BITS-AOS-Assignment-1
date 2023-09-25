@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import TypedDict
 
 import grpc
+from rich import print
+from rich.box import SQUARE
+from rich.console import Console
+from rich.table import Table
 
 import war_pb2
 import war_pb2_grpc
@@ -131,29 +135,37 @@ class Soldier:
         # assume that the missile will hit the soldier and later correct it while trying to escape
         self.is_alive = False
 
-        if is_position_in_blast_radius(self.position, missile_type, missile_position, self.board_size):
-            for direction in directions:
-                step = (self.speed * direction[0], self.speed * direction[1])
-                # it is possible that while trying to escape, the soldier goes outside the board
-                # to prevent that, ensure limits with max and min functions
-                new_position = (
-                    max(self.position[0] + step[0], 0),
-                    min(self.position[1] + step[1], self.board_size - 1),
-                )
-                if is_valid_position(new_position, self.board_size) and not is_position_in_blast_radius(
-                    new_position, missile_type, missile_position, self.board_size
-                ):
-                    self.position = new_position
-                    self.is_alive = True
-                    break
+        if not is_position_in_blast_radius(self.position, missile_type, missile_position, self.board_size):
+            return
+
+        for direction in directions:
+            step = (self.speed * direction[0], self.speed * direction[1])
+            # it is possible that while trying to escape, the soldier goes outside the board
+            # to prevent that, ensure limits with max and min functions
+            new_position = (
+                min(max(self.position[0] + step[0], 0), self.board_size - 1),
+                max(min(self.position[1] + step[1], self.board_size - 1), 0),
+            )
+            if is_valid_position(new_position, self.board_size) and not is_position_in_blast_radius(
+                new_position, missile_type, missile_position, self.board_size
+            ):
+                self.position = new_position
+                self.is_alive = True
+                print(f"Escaping to {self.position}")
+                break
 
 
 class Commander(Soldier):
     time_to_missile: int
     game_time: int
     cur_time: int
+    num_soldiers: int
 
-    alive_soldiers: list[SoldierMetadata]
+    alive_soldiers: dict[int, SoldierMetadata]
+
+    _missile_type: int | None = None
+    _missile_pos: tuple[int, int] | None = None
+    _console = Console()
 
     def __init__(
         self, board_size: int, time_to_missile: int, game_time: int, cur_time: int, is_initial_commander: bool
@@ -173,62 +185,70 @@ class Commander(Soldier):
         Reads a "soldiers.txt" inventory file. Each line contains the IP address and port of the soldiers
         """
         with Path("soldiers.txt").open("r") as f:
-            self.alive_soldiers = [
-                {"sid": i + 1, "addr": line.strip(), "position": (-1, -1)} for i, line in enumerate(f)
-            ]
+            self.alive_soldiers = {
+                i + 1: {"sid": i + 1, "addr": line.strip(), "position": (-1, -1)} for i, line in enumerate(f)
+            }
+        self.num_soldiers = len(self.alive_soldiers)
+        if self.num_soldiers < MIN_SOLDIERS:
+            raise ValueError(f"Need at least {MIN_SOLDIERS} soldiers, but only have {self.num_soldiers}")
 
     def set_position(self):
         position = (random.randrange(0, self.board_size), random.randrange(0, self.board_size))
-        for soldier in self.alive_soldiers:
+        for sid, soldier in self.alive_soldiers.items():
             if position == soldier["position"]:
                 position = (random.randrange(0, self.board_size), random.randrange(0, self.board_size))
         self.position = position
 
-    def send_startup_request(self):
-        for soldier in self.alive_soldiers:
-            with grpc.insecure_channel(soldier["addr"]) as channel:
+    def send_startup_message(self):
+        for sid in self.alive_soldiers:
+            with grpc.insecure_channel(self.alive_soldiers[sid]["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
-                resp = stub.StartupStatus(war_pb2.StartupRequest(soldier_id=soldier["sid"], N=self.board_size))
-                soldier["position"] = (resp.current_position.x, resp.current_position.y)
+                resp = stub.StartupStatus(war_pb2.StartupRequest(soldier_id=sid, N=self.board_size))
+                self.alive_soldiers[sid]["position"] = (resp.current_position.x, resp.current_position.y)
 
-    def send_missile_approaching_request(self):
-        missile = spawn_missile(self.board_size)
+    def send_missile_approaching_message(self):
+        self._missile_type, self._missile_pos = spawn_missile(self.board_size)
+        self._console.print(self._missile_type, self._missile_pos, sep=" ")
         # commander takes shelter and then notifies the soldiers
-        self.take_shelter(missile_type=missile[0], missile_position=missile[1])
+        self.take_shelter(missile_type=self._missile_type, missile_position=self._missile_pos)
 
-        for soldier in self.alive_soldiers:
+        for soldier in self.alive_soldiers.values():
             with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 stub.MissileApproaching(
                     war_pb2.MissileApproachingRequest(
-                        target=war_pb2.Point(x=missile[1][0], y=missile[1][1]),
+                        target=war_pb2.Point(x=self._missile_pos[0], y=self._missile_pos[1]),
                         time_to_hit=self.time_to_missile,
-                        type=missile[0],
+                        type=self._missile_type,
                     )
                 )
 
-    def send_round_status_request(self):
-        for soldier in self.alive_soldiers:
+    def send_round_status_message(self):
+        to_delete = []
+        for sid, soldier in self.alive_soldiers.items():
             with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 resp = stub.RoundStatus(war_pb2.Empty())
                 if resp.was_hit:
                     # delete soldier from alive_soldiers
-                    self.alive_soldiers = [sol for sol in self.alive_soldiers if sol["sid"] != resp.soldier_id]
+                    to_delete.append(sid)
                 else:
                     # update soldier position
                     soldier["position"] = (resp.updated_position.x, resp.updated_position.y)
+        for sid in to_delete:
+            self.alive_soldiers.pop(sid)
 
     def send_new_commander_message(self):
         # select new commander randomly
-        new_commander = random.choice(self.alive_soldiers)
+        new_commander = random.choice(list(self.alive_soldiers.values()))
         alive_soldiers_grpc = [
             war_pb2.AliveSoldier(
-                sid=soldier["sid"],
+                sid=sid,
                 addr=soldier["addr"],
                 position=war_pb2.Point(x=soldier["position"][0], y=soldier["position"][1]),
             )
-            for soldier in self.alive_soldiers
+            for sid, soldier in self.alive_soldiers.values()
+            if sid != new_commander["sid"]
         ]
         with grpc.insecure_channel(new_commander["addr"]) as channel:
             stub = war_pb2_grpc.WarStub(channel)
@@ -243,30 +263,63 @@ class Commander(Soldier):
             )
 
     def send_game_over(self):
-        for soldier in self.alive_soldiers:
+        for soldier in self.alive_soldiers.values():
             with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 stub.GameOver(war_pb2.Empty())
 
     def run_game_loop(self):
-        while self.cur_time <= self.game_time:
-            self.send_missile_approaching_request()
+        self.print_layout()
+        while self.cur_time < self.game_time and self.is_alive:
+            self.send_missile_approaching_message()
             time.sleep(self.time_to_missile)
             self.cur_time += self.time_to_missile
-            self.send_round_status_request()
-            if not self.is_alive:
-                if len(self.alive_soldiers) > 0:
-                    self.send_new_commander_message()
-                self.is_alive = False
-                break
+            self.send_round_status_message()
             self.print_layout()
 
         if self.is_alive:
             self.send_game_over()
+            self._missile_type = None
+            self._missile_pos = None
+        elif len(self.alive_soldiers) > 0:
+            self.send_new_commander_message()
 
     def print_layout(self):
-        # TODO: Print board layout
-        pass
+        self._console.rule(f"After Round {self.cur_time // self.game_time}")
+        table = Table(title="Board", show_header=False, show_lines=True, box=SQUARE)
+
+        for i in range(self.board_size):
+            row = []
+            for j in range(self.board_size):
+                cur_pos = (i, j)
+                cell_done = False
+                if self.position == cur_pos:
+                    row.append("[green]C[/green]")
+                    cell_done = True
+                elif self._missile_type is not None and is_position_in_blast_radius(
+                    cur_pos, self._missile_type, self._missile_pos, self.board_size
+                ):
+                    row.append("[red]X[/red]")
+                    cell_done = True
+                else:
+                    for sid, soldier in self.alive_soldiers.items():
+                        if soldier["position"] == cur_pos:
+                            row.append(f"[green]{sid}[/green]")
+                            cell_done = True
+                if not cell_done:
+                    row.append(" ")
+            table.add_row(*row)
+        self._console.print(table)
+        if self._missile_type is not None:
+            self._console.print(f"Missile M{self._missile_type} at {self._missile_pos}")
+
+        dead_soldiers = [i for i in range(1, self.num_soldiers + 1) if i not in self.alive_soldiers]
+        self._console.print(
+            f"Dead Soldiers: {dead_soldiers}",
+            f"Current Time: {self.cur_time}",
+            f"Total Time: {self.game_time}",
+            sep="\t",
+        )
 
 
 class War(war_pb2_grpc.WarServicer):
@@ -275,7 +328,7 @@ class War(war_pb2_grpc.WarServicer):
 
     def StartupStatus(self, request, context):
         self.soldier.sid = request.soldier_id
-        self.soldier.board_size = request.board_size
+        self.soldier.board_size = request.N
         self.soldier.position = (
             random.randrange(0, self.soldier.board_size),
             random.randrange(0, self.soldier.board_size),
@@ -327,18 +380,18 @@ if __name__ == "__main__":
     with Path("config.toml").open("rb") as f:
         conf = tomllib.load(f)
     if conf["N"] < MIN_BOARD_SIZE:
-        print(f"Board size must at least be {MIN_BOARD_SIZE}", file=sys.stderr)
+        print(f"[bold red]Board size must at least be {MIN_BOARD_SIZE}[/bold red]", file=sys.stderr)
         sys.exit(1)
     if conf["t"] > conf["T"]:
-        print("Frequency between missiles cannot be greater than game time", file=sys.stderr)
+        print("[bold red]Frequency between missiles cannot be greater than game time[/bold red]", file=sys.stderr)
         sys.exit(1)
 
     if args.commander:
         c = Commander(conf["N"], conf["t"], conf["T"], cur_time=0, is_initial_commander=True)
-        c.send_startup_request()
+        c.send_startup_message()
         c.set_position()
-        c.print_layout()
         c.run_game_loop()
+        c.print_layout()
     else:
         s = Soldier()
         war_service = War()
@@ -351,6 +404,9 @@ if __name__ == "__main__":
         try:
             while True:
                 if not s.is_alive or s.game_over or s.is_promoted:
+                    # sleep for a few seconds to ensure that the soldier
+                    # responds to any immediate messages from the commander
+                    time.sleep(conf["t"])
                     # stop gRPC server
                     server.stop(GRPC_SERVER_SHUTDOWN_TIMEOUT)
                     break
@@ -359,5 +415,4 @@ if __name__ == "__main__":
 
         # now onwards it behaves as commander
         if s.is_promoted:
-            war_service.commander.print_layout()
             war_service.commander.run_game_loop()
