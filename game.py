@@ -18,7 +18,7 @@ import war_pb2
 import war_pb2_grpc
 
 MAX_SPEED = 4
-MIN_BOARD_SIZE = 5
+MIN_BOARD_SIZE = 8
 MIN_SOLDIERS = 2
 
 GRPC_SERVER_SHUTDOWN_TIMEOUT = 10
