@@ -217,10 +217,9 @@ class Commander(Soldier):
         self.time_to_missile = time_to_missile
         self.game_time = game_time
         self.cur_time = cur_time
-        self.num_soldiers = 0
+        self.outfile = Path(f"output-{self.sid}.log").open("w")
         if is_initial_commander:
             self._read_soldier_inventory()
-            self.outfile = Path(f"output-{self.sid}.log").open("w")
 
     def _read_soldier_inventory(self):
         with Path("config.toml").open("rb") as f:
@@ -231,13 +230,11 @@ class Commander(Soldier):
                     "addr": addr,
                     "position": (-1, -1),
                 }
-                for i, addr in enumerate(soldiers)
+                for i, addr in enumerate(soldiers[: self.num_soldiers - 1])
             ]
 
         if (real_count := len(self.alive_soldiers)) < self.num_soldiers - 1:
             raise ValueError(f"Need at least {self.num_soldiers} soldiers, but only have {real_count}")
-        elif len(soldiers) >= self.num_soldiers:
-            self.console.print(f"[{COLOR_YELLOW}]Ignoring extra soldiers...[/{COLOR_YELLOW}]")
 
     def set_position(self):
         """
@@ -513,8 +510,6 @@ if __name__ == "__main__":
         c.send_startup_message()
         c.set_position()
         c.run_game_loop()
-        c.console.print("[bold {COLOR_RED}]Hit by missile[/bold {COLOR_RED}]")
-        c.outfile.write("[Info]:     Hit by missile\n")
     else:
         s = Soldier()
         war_service = War()
