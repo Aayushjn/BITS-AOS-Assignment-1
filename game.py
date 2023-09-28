@@ -378,7 +378,6 @@ class Commander(Soldier):
             set(range(0, self.num_soldiers)) - {soldier["sid"] for soldier in self.alive_soldiers} - {self.sid},
         )
         self.console.print(
-            f"Alive Soldiers: [{COLOR_BLUE}]{self.alive_soldiers}[/{COLOR_BLUE}]]",
             f"Dead Soldiers: [{COLOR_BLUE}]{dead_soldiers}[/{COLOR_BLUE}]",
             f"Current Time: [{COLOR_BLUE}]{self.cur_time}[/{COLOR_BLUE}]",
             f"Total Time: [{COLOR_BLUE}]{self.game_time}[/{COLOR_BLUE}]",
@@ -433,6 +432,8 @@ class War(war_pb2_grpc.WarServicer):
             False,
         )
         self.commander.sid = self.soldier.sid
+        self.commander.position = self.soldier.position
+        self.commander.num_soldiers = request.num_soldiers
         # make a note of alive soldiers and remove self entry
         self.commander.alive_soldiers = [
             {
@@ -442,7 +443,6 @@ class War(war_pb2_grpc.WarServicer):
             }
             for soldier in request.alive_soldiers
         ]
-        self.commander.position = self.soldier.position
         return war_pb2.Empty()
 
     def GameOver(self, request, context):
