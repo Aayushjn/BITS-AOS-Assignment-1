@@ -18,7 +18,7 @@ import war_pb2
 import war_pb2_grpc
 
 MAX_SPEED = 4
-MIN_BOARD_SIZE = 8
+MIN_BOARD_SIZE = 6
 MIN_SOLDIERS = 2
 
 GRPC_SERVER_SHUTDOWN_TIMEOUT = 10
@@ -184,6 +184,7 @@ class Commander(Soldier):
         self.time_to_missile = time_to_missile
         self.game_time = game_time
         self.cur_time = cur_time
+        self.num_soldiers = 0
         if is_initial_commander:
             self._read_soldier_inventory()
 
@@ -196,6 +197,7 @@ class Commander(Soldier):
                 i + 1: {"sid": i + 1, "addr": line.strip(), "position": (-1, -1)} for i, line in enumerate(f)
             }
         self.num_soldiers = len(self.alive_soldiers)
+
         if self.num_soldiers < MIN_SOLDIERS:
             raise ValueError(f"Need at least {MIN_SOLDIERS} soldiers, but only have {self.num_soldiers}")
 
@@ -249,6 +251,9 @@ class Commander(Soldier):
     def send_new_commander_message(self):
         # select new commander randomly
         new_commander = random.choice(list(self.alive_soldiers.values()))
+        self.console.print(f"[bold green]New commander is {new_commander['sid']} [/bold green]")
+        # create GRPC format alive_soldiers msg and remove entry for new commander
+        # This is done because new commander itself doesn't need to be included in the alive_soldiers
         alive_soldiers_grpc = [
             war_pb2.AliveSoldier(
                 sid=sid,
@@ -309,7 +314,7 @@ class Commander(Soldier):
                 if not self.was_hit and self.position == cur_pos:
                     row.append("[green]C[/green]")
                     cell_done = True
-                elif self._missile_type is not None and is_position_in_blast_radius(
+                elif self._missile_type is not None and self._missile_pos is not None and is_position_in_blast_radius(
                     cur_pos, self._missile_type, self._missile_pos, self.board_size
                 ):
                     row.append("[red]X[/red]")
@@ -374,12 +379,15 @@ class War(war_pb2_grpc.WarServicer):
         self.commander = Commander(
             request.board_size, request.time_to_missile, request.game_time, request.cur_time, False
         )
-        # make a note of alive soldiers and remove self entry
-        self.commander.alive_soldiers = [
-            {"sid": soldier.sid, "addr": soldier.addr, "position": (soldier.position.x, soldier.position.y)}
+        # make a note of alive soldiers
+        self.commander.alive_soldiers = {
+            soldier.sid: {
+                "sid": soldier.sid,
+                "addr": soldier.addr,
+                "position": (soldier.position.x, soldier.position.y)
+            }
             for soldier in request.alive_soldiers
-            if soldier.sid != self.soldier.sid
-        ]
+        }
         self.commander.position = self.soldier.position
         return war_pb2.Empty()
 
@@ -412,6 +420,7 @@ if __name__ == "__main__":
         c.send_startup_message()
         c.set_position()
         c.run_game_loop()
+        c.console.print("[bold red]Hit by missile[/bold red]")
     else:
         s = Soldier()
         war_service = War()
