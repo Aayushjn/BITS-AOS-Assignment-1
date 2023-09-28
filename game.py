@@ -372,10 +372,13 @@ class Commander(Soldier):
             )
 
         dead_soldiers = list(
-            set(range(0, self.num_soldiers)) - {soldier["sid"] for soldier in self.alive_soldiers} - {self.sid}
+            map(
+                str,
+                set(range(0, self.num_soldiers)) - {soldier["sid"] for soldier in self.alive_soldiers} - {self.sid},
+            )
         )
         self.console.print(
-            f"Dead Soldiers: [{COLOR_BLUE}]{dead_soldiers}[/{COLOR_BLUE}]",
+            f"Dead Soldiers: [{COLOR_BLUE}]{','.join(dead_soldiers)}[/{COLOR_BLUE}]",
             f"Current Time: [{COLOR_BLUE}]{self.cur_time}[/{COLOR_BLUE}]",
             f"Total Time: [{COLOR_BLUE}]{self.game_time}[/{COLOR_BLUE}]",
             sep="\t",
