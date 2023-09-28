@@ -337,6 +337,8 @@ class Commander(Soldier):
             self.console.print(f"[bold {COLOR_WHITE}]GAME {status}![/bold {COLOR_WHITE}]")
         elif len(self.alive_soldiers) > 0:
             self.send_new_commander_message()
+        else:
+            self.console.print(f"[bold {COLOR_WHITE}]All soldiers have been killed, GAME LOST![/bold {COLOR_WHITE}]")
 
     def print_layout(self):
         self.console.rule(f"After Round {self.cur_time // self.time_to_missile}")
@@ -372,13 +374,10 @@ class Commander(Soldier):
             )
 
         dead_soldiers = list(
-            map(
-                str,
-                set(range(0, self.num_soldiers)) - {soldier["sid"] for soldier in self.alive_soldiers} - {self.sid},
-            )
+            set(range(0, self.num_soldiers)) - {soldier["sid"] for soldier in self.alive_soldiers} - {self.sid},
         )
         self.console.print(
-            f"Dead Soldiers: [{COLOR_BLUE}]{','.join(dead_soldiers)}[/{COLOR_BLUE}]",
+            f"Dead Soldiers: [{COLOR_BLUE}]{dead_soldiers}[/{COLOR_BLUE}]",
             f"Current Time: [{COLOR_BLUE}]{self.cur_time}[/{COLOR_BLUE}]",
             f"Total Time: [{COLOR_BLUE}]{self.game_time}[/{COLOR_BLUE}]",
             sep="\t",
