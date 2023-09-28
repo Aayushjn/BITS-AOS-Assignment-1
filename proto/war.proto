@@ -44,10 +44,11 @@ message AliveSoldier {
 
 message NewCommanderRequest {
   int32 board_size = 1;
-  int32 time_to_missile = 2;
-  int32 game_time = 3;
-  int32 cur_time = 4;
-  repeated AliveSoldier alive_soldiers = 5;
+  int32 num_soldiers = 2;
+  int32 time_to_missile = 3;
+  int32 game_time = 4;
+  int32 cur_time = 5;
+  repeated AliveSoldier alive_soldiers = 6;
 }
 
 message Empty {}
