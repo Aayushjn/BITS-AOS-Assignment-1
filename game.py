@@ -202,9 +202,6 @@ class Commander(Soldier):
         cur_time: int,
         is_initial_commander: bool,
     ):
-        if num_soldiers < MIN_SOLDIERS:
-            raise ValueError(f"Need at least {MIN_SOLDIERS} soldiers, but only have {num_soldiers}")
-
         super().__init__()
 
         self.sid = 0
@@ -250,7 +247,7 @@ class Commander(Soldier):
         self.position = position
 
         self.console.print(
-            f"Commander starting at [{COLOR_BLUE}]{self.position}[/{COLOR_BLUE}] with speed"
+            f"Commander starting at [{COLOR_BLUE}]{self.position}[/{COLOR_BLUE}] with speed "
             f"[{COLOR_BLUE}]{self.speed}[/{COLOR_BLUE}]"
         )
 
@@ -463,6 +460,7 @@ if __name__ == "__main__":
     random.seed(os.urandom(16))
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("addr", type=str, help="grpc server address (ignored when running commander)")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--commander", action="store_true")
     group.add_argument("--soldier", action="store_true")
@@ -470,6 +468,9 @@ if __name__ == "__main__":
 
     with Path("config.toml").open("rb") as f:
         conf = tomllib.load(f)
+
+    if conf["M"] < MIN_SOLDIERS:
+        print(f"[bold {COLOR_RED}]Require at least {MIN_SOLDIERS} soldiers[/bold {COLOR_RED}]", file=sys.stderr)
     if conf["N"] < MIN_BOARD_SIZE:
         print(f"[bold {COLOR_RED}]Board size must at least be {MIN_BOARD_SIZE}[/bold {COLOR_RED}]", file=sys.stderr)
         sys.exit(1)
@@ -491,7 +492,11 @@ if __name__ == "__main__":
         war_service.soldier = s
         server = grpc.server(ThreadPoolExecutor(max_workers=10))
         war_pb2_grpc.add_WarServicer_to_server(war_service, server)
-        server.add_insecure_port(conf["addr"])
+        if ":" not in args.addr:
+            port = server.add_insecure_port(f"{args.addr}:0")
+            print(f"Running server on port {port}")
+        else:
+            port = server.add_insecure_port(args.addr)
         server.start()
 
         try:
