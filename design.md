@@ -31,11 +31,52 @@ Since the game is designed to be completely random (including starting positions
 force certain conditions without modifying the code. Nevertheless, we have tested with variations of the 
 hyperparameters (including illegal values) specified via the configuration file.
 
-Scenarios verified:
-- Missiles do not hit any soldiers for the entirety of the game
-- All players manage to escape in all rounds
-- Soldiers attempt to escape missile by running out-of-bounds but are limited to board limits
-- Soldiers get hit and report their status to the commander
-- Commander gets hit and transfers control to a randomly elected soldier
-- More than 50% soldiers are hit by missiles and the game is lost
-- No players survive the game 
+Inputs:
+
+```toml
+N = 8
+M = 6
+t = 3
+T = 15
+```
+
+Scenarios:
+
+- Simulation 1
+  - Starting position
+
+    ![Starting Position](./img/scenario-1-start-layout.png)
+  - Output at soldier 5
+
+    ![Soldier 5 Output](./img/scenario-1-soldier-5-output.png)
+  - Board after missile hit
+    
+    ![Missile hit in round 1](./img/scenario-1-missile-hit.png)
+  - Soldiers sharing cell after escaping missile
+    
+    ![Soldiers sharing cell](./img/scenario-1-cell-sharing.png)
+  - Game won
+    
+    ![Game Won](./img/scenario-1-game-won.png)
+
+- Simulation 2
+  - Starting position
+
+    ![Starting Position](./img/scenario-2-start-layout.png)
+  - Commander hit by missile
+  
+    ![Commander hit by missile](./img/scenario-2-commander-hit.png)
+  - New commander resuming duties
+  
+    ![New commander resuming duties](./img/scenario-2-new-commander-resume.png)
+  - Winning with 50% alive soldiers
+  
+    ![Winning with 50% alive soldiers](./img/scenario-2-win-at-50-percent.png)
+
+- Simulation 3
+  - Starting position
+  
+    ![Starting position](./img/scenario-3-start-layout.png)
+  - Round 1
+  
+    ![Game lost](./img/scenario-3-game-lost.png)
