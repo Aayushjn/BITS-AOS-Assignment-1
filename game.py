@@ -226,9 +226,9 @@ class Commander(Soldier):
                 for i, addr in enumerate(soldiers)
             ]
 
-        if (real_count := len(self.alive_soldiers)) < self.num_soldiers:
+        if (real_count := len(self.alive_soldiers)) < self.num_soldiers - 1:
             raise ValueError(f"Need at least {self.num_soldiers} soldiers, but only have {real_count}")
-        elif len(soldiers) > self.num_soldiers:
+        elif len(soldiers) >= self.num_soldiers:
             self.console.print(f"[{COLOR_YELLOW}]Ignoring extra soldiers...[/{COLOR_YELLOW}]")
 
     def set_position(self):
@@ -372,7 +372,7 @@ class Commander(Soldier):
             )
 
         dead_soldiers = list(
-            set(range(1, self.num_soldiers + 1)) - {soldier["sid"] for soldier in self.alive_soldiers} - {self.sid}
+            set(range(0, self.num_soldiers)) - {soldier["sid"] for soldier in self.alive_soldiers} - {self.sid}
         )
         self.console.print(
             f"Dead Soldiers: [{COLOR_BLUE}]{dead_soldiers}[/{COLOR_BLUE}]",
@@ -428,6 +428,7 @@ class War(war_pb2_grpc.WarServicer):
             request.cur_time,
             False,
         )
+        self.commander.sid = self.soldier.sid
         # make a note of alive soldiers and remove self entry
         self.commander.alive_soldiers = [
             {
