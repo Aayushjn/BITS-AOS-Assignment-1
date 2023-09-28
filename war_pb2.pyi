@@ -58,18 +58,20 @@ class AliveSoldier(_message.Message):
     def __init__(self, sid: _Optional[int] = ..., addr: _Optional[str] = ..., position: _Optional[_Union[Point, _Mapping]] = ...) -> None: ...
 
 class NewCommanderRequest(_message.Message):
-    __slots__ = ["board_size", "time_to_missile", "game_time", "cur_time", "alive_soldiers"]
+    __slots__ = ["board_size", "num_soldiers", "time_to_missile", "game_time", "cur_time", "alive_soldiers"]
     BOARD_SIZE_FIELD_NUMBER: _ClassVar[int]
+    NUM_SOLDIERS_FIELD_NUMBER: _ClassVar[int]
     TIME_TO_MISSILE_FIELD_NUMBER: _ClassVar[int]
     GAME_TIME_FIELD_NUMBER: _ClassVar[int]
     CUR_TIME_FIELD_NUMBER: _ClassVar[int]
     ALIVE_SOLDIERS_FIELD_NUMBER: _ClassVar[int]
     board_size: int
+    num_soldiers: int
     time_to_missile: int
     game_time: int
     cur_time: int
     alive_soldiers: _containers.RepeatedCompositeFieldContainer[AliveSoldier]
-    def __init__(self, board_size: _Optional[int] = ..., time_to_missile: _Optional[int] = ..., game_time: _Optional[int] = ..., cur_time: _Optional[int] = ..., alive_soldiers: _Optional[_Iterable[_Union[AliveSoldier, _Mapping]]] = ...) -> None: ...
+    def __init__(self, board_size: _Optional[int] = ..., num_soldiers: _Optional[int] = ..., time_to_missile: _Optional[int] = ..., game_time: _Optional[int] = ..., cur_time: _Optional[int] = ..., alive_soldiers: _Optional[_Iterable[_Union[AliveSoldier, _Mapping]]] = ...) -> None: ...
 
 class Empty(_message.Message):
     __slots__ = []
