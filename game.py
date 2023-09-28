@@ -89,7 +89,7 @@ class SoldierMetadata(TypedDict):
     Soldier metadata is maintained by the commander. This class is present simply to ensure "strict typing" in the code
     """
 
-    sid: int
+    sid: int | str
     addr: str
     position: tuple[int, int]
 
@@ -135,6 +135,7 @@ class Soldier:
             return
         elif self.speed == 0:
             self.was_hit = True
+            self.console.print(f"[bold {COLOR_RED}]Hit by missile[/bold {COLOR_RED}]")
             return
 
         self.was_hit = True
@@ -188,7 +189,7 @@ class Commander(Soldier):
     cur_time: int
     num_soldiers: int
 
-    alive_soldiers: dict[int, SoldierMetadata]
+    alive_soldiers: list[SoldierMetadata]
 
     _missile_type: int | None = None
     _missile_pos: tuple[int, int] | None = None
@@ -214,25 +215,20 @@ class Commander(Soldier):
             self._read_soldier_inventory()
 
     def _read_soldier_inventory(self):
-        """
-        Reads a "soldiers.txt" inventory file. Each line contains the IP address and port of the soldiers
-        """
-        real_count = 0
-        self.alive_soldiers = {}
-        with Path("soldiers.txt").open("r") as f:
-            for line in f:
-                if real_count > self.num_soldiers:
-                    break
-                self.alive_soldiers[real_count + 1] = {
-                    "sid": real_count + 1,
-                    "addr": line.strip(),
+        with Path("config.toml").open("rb") as f:
+            soldiers = tomllib.load(f)["soldiers"]
+            self.alive_soldiers = [
+                {
+                    "sid": i + 1,
+                    "addr": addr,
                     "position": (-1, -1),
                 }
-                real_count += 1
+                for i, addr in enumerate(soldiers)
+            ]
 
-        if real_count < self.num_soldiers:
+        if (real_count := len(self.alive_soldiers)) < self.num_soldiers:
             raise ValueError(f"Need at least {self.num_soldiers} soldiers, but only have {real_count}")
-        elif real_count > self.num_soldiers:
+        elif len(soldiers) > self.num_soldiers:
             self.console.print(f"[{COLOR_YELLOW}]Ignoring extra soldiers...[/{COLOR_YELLOW}]")
 
     def set_position(self):
@@ -241,7 +237,7 @@ class Commander(Soldier):
         Through the course of the game, the commander may share starting location with others but not at the start
         """
         position = (random.randrange(0, self.board_size), random.randrange(0, self.board_size))
-        for soldier in self.alive_soldiers.values():
+        for soldier in self.alive_soldiers:
             if position == soldier["position"]:
                 position = (random.randrange(0, self.board_size), random.randrange(0, self.board_size))
         self.position = position
@@ -252,18 +248,18 @@ class Commander(Soldier):
         )
 
     def send_startup_message(self):
-        for sid in self.alive_soldiers:
-            with grpc.insecure_channel(self.alive_soldiers[sid]["addr"]) as channel:
+        for soldier in self.alive_soldiers:
+            with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
-                resp = stub.StartupStatus(war_pb2.StartupRequest(soldier_id=sid, N=self.board_size))
-                self.alive_soldiers[sid]["position"] = (resp.current_position.x, resp.current_position.y)
+                resp = stub.StartupStatus(war_pb2.StartupRequest(soldier_id=soldier["sid"], N=self.board_size))
+                soldier["position"] = (resp.current_position.x, resp.current_position.y)
 
     def send_missile_approaching_message(self):
         self._missile_type, self._missile_pos = spawn_missile(self.board_size)
         # commander takes shelter and then notifies the soldiers
         self.take_shelter(missile_type=self._missile_type, missile_position=self._missile_pos)
 
-        for soldier in self.alive_soldiers.values():
+        for soldier in self.alive_soldiers:
             with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 stub.MissileApproaching(
@@ -276,31 +272,30 @@ class Commander(Soldier):
 
     def send_round_status_message(self):
         to_delete = []
-        for sid, soldier in self.alive_soldiers.items():
+        for soldier in self.alive_soldiers:
             with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 resp = stub.RoundStatus(war_pb2.Empty())
                 if resp.was_hit:
                     # delete soldier from alive_soldiers
-                    to_delete.append(sid)
+                    to_delete.append(soldier["sid"])
                 else:
                     # update soldier position
                     soldier["position"] = (resp.updated_position.x, resp.updated_position.y)
-        for sid in to_delete:
-            self.alive_soldiers.pop(sid)
+        self.alive_soldiers = [soldier for soldier in self.alive_soldiers if soldier["sid"] not in to_delete]
 
     def send_new_commander_message(self):
         # select new commander randomly
-        new_commander = random.choice(list(self.alive_soldiers.values()))
+        new_commander = random.choice(self.alive_soldiers)
         self.console.print(f"[{COLOR_YELLOW}]Elected soldier {new_commander['sid']} as new commander![/{COLOR_YELLOW}]")
         alive_soldiers_grpc = [
             war_pb2.AliveSoldier(
-                sid=sid,
+                sid=soldier["sid"],
                 addr=soldier["addr"],
                 position=war_pb2.Point(x=soldier["position"][0], y=soldier["position"][1]),
             )
-            for sid, soldier in self.alive_soldiers.items()
-            if sid != new_commander["sid"]
+            for soldier in self.alive_soldiers
+            if soldier["sid"] != new_commander["sid"]
         ]
         with grpc.insecure_channel(new_commander["addr"]) as channel:
             stub = war_pb2_grpc.WarStub(channel)
@@ -316,7 +311,7 @@ class Commander(Soldier):
             )
 
     def send_game_over(self):
-        for soldier in self.alive_soldiers.values():
+        for soldier in self.alive_soldiers:
             with grpc.insecure_channel(soldier["addr"]) as channel:
                 stub = war_pb2_grpc.WarStub(channel)
                 stub.GameOver(war_pb2.Empty())
@@ -338,6 +333,8 @@ class Commander(Soldier):
             self._missile_type = None
             self._missile_pos = None
             self.print_layout()
+            status = "WON" if len(self.alive_soldiers) + 1 >= (self.num_soldiers / 2) else "LOST"
+            self.console.print(f"[bold {COLOR_GREEN}]GAME {status}![/bold {COLOR_GREEN}]")
         elif len(self.alive_soldiers) > 0:
             self.send_new_commander_message()
 
@@ -352,28 +349,20 @@ class Commander(Soldier):
             row = [f"[bold {COLOR_YELLOW}]{i}[/bold {COLOR_YELLOW}]"]
             for j in range(self.board_size):
                 cur_pos = (i, j)
-                cell_done = False
-                if not self.was_hit and self.position == cur_pos:
-                    row.append(f"[{COLOR_GREEN}]C[/{COLOR_GREEN}]")
-                    cell_done = True
-                elif self._missile_type is not None:
-                    if self._missile_pos == cur_pos:
-                        row.append(f"[{COLOR_RED}]M[/{COLOR_RED}]")
-                        cell_done = True
-                    elif is_position_in_blast_radius(cur_pos, self._missile_type, self._missile_pos, self.board_size):
-                        row.append(f"[{COLOR_RED}]X[/{COLOR_RED}]")
-                        cell_done = True
-                else:
+                cell_item = None
+                if self._missile_type is not None and is_position_in_blast_radius(
+                    cur_pos, self._missile_type, self._missile_pos, self.board_size
+                ):
+                    cell_item = f"[{COLOR_RED}]{'M' if self._missile_pos == cur_pos else 'X'}[/{COLOR_RED}]"
+
+                if cell_item is None:
                     soldiers = [
-                        f"[{COLOR_GREEN}]{sid}[/{COLOR_GREEN}]"
-                        for sid, soldier in self.alive_soldiers.items()
+                        f"[{COLOR_GREEN}]{soldier['sid']}[/{COLOR_GREEN}]"
+                        for soldier in (self.alive_soldiers + [{"sid": "C", "addr": "0", "position": self.position}])
                         if soldier["position"] == cur_pos
                     ]
-                    if len(soldiers) != 0:
-                        row.append(",".join(soldiers))
-                        cell_done = True
-                if not cell_done:
-                    row.append(" ")
+                    cell_item = " " if len(soldiers) == 0 else ",".join(soldiers)
+                row.append(cell_item)
             table.add_row(*row)
         self.console.print(table)
         if self._missile_type is not None:
@@ -382,7 +371,9 @@ class Commander(Soldier):
                 f"[{COLOR_BLUE}]{self._missile_pos}[/{COLOR_BLUE}]"
             )
 
-        dead_soldiers = [i for i in range(1, self.num_soldiers + 1) if i not in self.alive_soldiers]
+        dead_soldiers = list(
+            set(range(1, self.num_soldiers + 1)) - {soldier["sid"] for soldier in self.alive_soldiers} - {self.sid}
+        )
         self.console.print(
             f"Dead Soldiers: [{COLOR_BLUE}]{dead_soldiers}[/{COLOR_BLUE}]",
             f"Current Time: [{COLOR_BLUE}]{self.cur_time}[/{COLOR_BLUE}]",
@@ -438,15 +429,15 @@ class War(war_pb2_grpc.WarServicer):
             False,
         )
         # make a note of alive soldiers and remove self entry
-        self.commander.alive_soldiers = {
-            soldier.sid: {
+        self.commander.alive_soldiers = [
+            {
                 "sid": soldier.sid,
                 "addr": soldier.addr,
                 "position": (soldier.position.x, soldier.position.y),
             }
             for soldier in request.alive_soldiers
             if soldier.sid != self.soldier.sid
-        }
+        ]
         self.commander.position = self.soldier.position
         return war_pb2.Empty()
 
@@ -466,22 +457,22 @@ if __name__ == "__main__":
     group.add_argument("--soldier", action="store_true")
     args = parser.parse_args()
 
-    with Path("config.toml").open("rb") as f:
-        conf = tomllib.load(f)
-
-    if conf["M"] < MIN_SOLDIERS:
-        print(f"[bold {COLOR_RED}]Require at least {MIN_SOLDIERS} soldiers[/bold {COLOR_RED}]", file=sys.stderr)
-    if conf["N"] < MIN_BOARD_SIZE:
-        print(f"[bold {COLOR_RED}]Board size must at least be {MIN_BOARD_SIZE}[/bold {COLOR_RED}]", file=sys.stderr)
-        sys.exit(1)
-    if conf["t"] > conf["T"]:
-        print(
-            f"[bold {COLOR_RED}]Frequency between missiles cannot be greater than game time[/bold {COLOR_RED}]",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     if args.commander:
+        with Path("config.toml").open("rb") as f:
+            conf = tomllib.load(f)
+
+        if conf["M"] < MIN_SOLDIERS:
+            print(f"[bold {COLOR_RED}]Require at least {MIN_SOLDIERS} soldiers[/bold {COLOR_RED}]", file=sys.stderr)
+        if conf["N"] < MIN_BOARD_SIZE:
+            print(f"[bold {COLOR_RED}]Board size must at least be {MIN_BOARD_SIZE}[/bold {COLOR_RED}]", file=sys.stderr)
+            sys.exit(1)
+        if conf["t"] > conf["T"]:
+            print(
+                f"[bold {COLOR_RED}]Frequency between missiles cannot be greater than game time[/bold {COLOR_RED}]",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         c = Commander(conf["N"], conf["M"], conf["t"], conf["T"], cur_time=0, is_initial_commander=True)
         c.send_startup_message()
         c.set_position()
