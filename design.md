@@ -6,22 +6,34 @@
 
 ### Design Considerations
 
+Constraints:
+- N >= 8
+- 0 <= Si <= 4
+- 0 < t <= T
+- M >= 2
+
 - Minimum board size is **8**
   - If an M4 missile lands directly in the center of 7x7 grid, it will cover the entire grid and the game may end in a 
     single round itself
+  - Just to allow reasonable progress of the game, we have specified this constraint
 - Since the commander initiates any messages, the commander runs a gRPC client while the soldiers 
   run gRPC servers
-  - _M_ soldiers need to be started first before the commander can be started
-  - Since the commander needs to be able to communicate with the soldiers, a list of addresses needs to be passed to it
+  - _M-1_ soldiers need to be started first before the commander can be started
+- Commander needs to know the ip addresses of the soldiers to be able to communicate to them. This is achieved using listing soldier ip addresses in _config.toml_ file
 - Players are allowed to share cells on the board
-- At the start of the game, the commander selects a random position for itself that is not shared by any soldier
 - To decouple the RPC from the core behavior of the soldiers, the RPC service takes the soldier (and a commander) as a 
   dependency
-  - Since game logic depends on the incoming RPC messages, the RPC service itself modifies soldier states
-- To simplify configuring the commander, a `config.toml` file (documented in [readme.txt](./readme.txt)) is used
+- To simplify configuring the commander, a _config.toml_ file (documented in [readme.txt](./readme.txt)) is used
 
-_Note: The code documents most (if not all) the implementation details that may be present. Thus, no other 
-documentation on the code is included in this document._
+_Note: The code contains detailed documentation and comments wherever appropriate_
+
+## Working
+  ### RPC messages
+  - `StartupStatus` - Commander tells each soldier their soldier_id and board_size. Using this the soldier takes initial position.
+  - `MissileApproaching` - Commander tells each soldier the type and position of approaching missile
+  - `RoundStatus` - At the end of each round, Commander checks which soldiers are alive. To this, soldiers reply either that they are _hit_ or give their updated location
+  - `NewCommander` - If commander is hit, it sends all the hyperparameters and metadata to newly elected commander. On receiving, the new commander takes up the duties of commander
+
 
 ___
 
