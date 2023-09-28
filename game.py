@@ -128,9 +128,8 @@ class Soldier:
             (x, y) co-ordinates of the missile's center
         """
         # must choose one of possible eight directions to move in
-        directions = [(-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1)]
-        # assume that the missile will hit the soldier and later correct it while trying to escape
 
+        directions = [(-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1)]
         if not is_position_in_blast_radius(self.position, missile_type, missile_position, self.board_size):
             return
         elif self.speed == 0:
@@ -138,6 +137,7 @@ class Soldier:
             self.console.print(f"[bold {COLOR_RED}]Hit by missile[/bold {COLOR_RED}]")
             return
 
+        # assume that the missile will hit the soldier and later correct it while trying to escape
         self.was_hit = True
         # currently two or more soldiers are allowed to share the same cell while setting their position
         # to ensure that soldiers with the same speed are not "stuck" to each other for the entirety of the game
@@ -334,7 +334,7 @@ class Commander(Soldier):
             self._missile_pos = None
             self.print_layout()
             status = "WON" if len(self.alive_soldiers) + 1 >= (self.num_soldiers / 2) else "LOST"
-            self.console.print(f"[bold {COLOR_GREEN}]GAME {status}![/bold {COLOR_GREEN}]")
+            self.console.print(f"[bold {COLOR_WHITE}]GAME {status}![/bold {COLOR_WHITE}]")
         elif len(self.alive_soldiers) > 0:
             self.send_new_commander_message()
 
